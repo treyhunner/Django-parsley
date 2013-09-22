@@ -1,3 +1,5 @@
+import re
+
 from django import forms
 from parsley.decorators import parsleyfy
 from .models import Student
@@ -26,6 +28,7 @@ class FieldTypeForm(forms.Form):
     income = forms.DecimalField()
     income2 = forms.FloatField()
     topnav = forms.RegexField(regex="#[A-Fa-f0-9]{6}")
+    topnav2 = forms.RegexField(regex=re.compile("#[a-z]+", re.IGNORECASE))
     some_num = forms.IntegerField(min_value=10, max_value=100)
 
 
@@ -93,3 +96,46 @@ class FormWithCustomChoices(forms.Form):
         super(FormWithCustomChoices, self).__init__(*args, **kwargs)
         self.fields['state'] = forms.ChoiceField(
             choices=get_state_choices())
+
+
+@parsleyfy
+class FormWithMedia(forms.Form):
+    name = forms.CharField(required=True)
+
+    class Media:
+        js = ("jquery.min.js",)
+        css = {"all": ("jquery.css",)}
+
+
+@parsleyfy
+class FormWithoutMedia(forms.Form):
+    name = forms.CharField(required=True)
+
+
+class SSNWidget(forms.MultiWidget):
+    def __init__(self, *args, **kwargs):
+        kwargs['widgets'] = [
+            forms.TextInput(),
+            forms.TextInput(),
+            forms.TextInput(),
+            ]
+        super(SSNWidget, self).__init__(*args, **kwargs)
+
+    def decompress(self, value):
+        return value.split('-') if value else [None, None, None]
+
+
+class SSN(forms.MultiValueField):
+    widget = SSNWidget
+    def __init__(self, *args, **kwargs):
+        fields = (
+            forms.RegexField(r'^(\d)+$', min_length=3, max_length=3),
+            forms.RegexField(r'^(\d)+$', min_length=3, max_length=3),
+            forms.RegexField(r'^(\d)+$', min_length=4, max_length=4),
+        )
+        super(SSN, self).__init__(fields=fields, *args, **kwargs)
+
+
+@parsleyfy
+class MultiWidgetForm(forms.Form):
+    ssn = SSN()

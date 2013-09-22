@@ -1,3 +1,5 @@
+import re
+
 from django import forms
 from django.contrib import admin
 from django.test import TestCase
@@ -6,7 +8,8 @@ from parsley.decorators import parsleyfy
 
 from .forms import (TextForm, TextForm2, FieldTypeForm, ExtraDataForm,
         FormWithWidgets, StudentModelForm, FormWithCleanField,
-        FormWithCustomInit, FormWithCustomChoices)
+        FormWithCustomInit, FormWithCustomChoices, FormWithMedia,
+        FormWithoutMedia, MultiWidgetForm)
 from .models import Student
 from .admin import StudentAdmin
 
@@ -58,6 +61,9 @@ class DataTypeTest(TestCase):
         self.assertEqual(fields["income"].widget.attrs["data-type"], "number")
         self.assertEqual(fields["income2"].widget.attrs["data-type"], "number")
         self.assertEqual(fields["topnav"].widget.attrs["data-regexp"], "#[A-Fa-f0-9]{6}")
+        self.assertNotIn("data-regexp-flag", fields["topnav"].widget.attrs)
+        self.assertEqual(fields["topnav2"].widget.attrs["data-regexp"], "#[a-z]+")
+        self.assertEqual(fields["topnav2"].widget.attrs["data-regexp-flag"], "i")
 
 
 class LengthTest(TestCase):
@@ -176,3 +182,50 @@ class TestAdminMixin(TestCase):
             '<script type="text/javascript" src="/static/parsley/js/parsley.django-admin.js"></script>',
             js
         )
+
+
+class TestFormMedia(TestCase):
+
+    def test_form_media(self):
+        form = FormWithoutMedia()
+        js = form.media.render_js()
+        self.assertIn(
+            '<script type="text/javascript" src="/static/parsley/js/parsley-standalone.min.js"></script>',
+            js
+        )
+
+    def test_existing_form_media(self):
+        form = FormWithMedia()
+        js = form.media.render_js()
+        self.assertIn(
+            '<script type="text/javascript" src="/static/jquery.min.js"></script>',
+            js
+        )
+        self.assertIn(
+            '<script type="text/javascript" src="/static/parsley/js/parsley-standalone.min.js"></script>',
+            js
+        )
+
+
+class TestMultiValueField(TestCase):
+    def test_parsley_attributes(self):
+        form = MultiWidgetForm()
+        fields = form.fields["ssn"].fields
+        self.assertEqual(fields[0].widget.attrs, {
+            "data-minlength": 3,
+            "data-maxlength": 3,
+            "maxlength": "3",
+            "data-regexp": r'^(\d)+$',
+        })
+        self.assertEqual(fields[1].widget.attrs, {
+            "data-minlength": 3,
+            "data-maxlength": 3,
+            "maxlength": "3",
+            "data-regexp": r'^(\d)+$',
+        })
+        self.assertEqual(fields[2].widget.attrs, {
+            "data-minlength": 4,
+            "data-maxlength": 4,
+            "maxlength": "4",
+            "data-regexp": r'^(\d)+$',
+        })
